@@ -30,6 +30,7 @@ def planBoard(baseBoard):
                     resources_per_tile[loc][0].add(baseBoard.resources[neighbor])
                     resources_per_tile[loc][1] += 1
     optimal_loc = max(resources_per_tile.keys(), key = lambda x: len(resources_per_tile[x][0]) + resources_per_tile[x][1])
+    return opt_loc
 
 
 def genRand(low,high):
