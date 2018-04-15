@@ -50,7 +50,7 @@ if __name__ == '__main__':
         if g >= 4:
             w, g = w+1, g-4
         return min(6,w), min(6,b), min(6,g)
-    T = transition_matrix(resources)
+    T = transition_matrix(resources, trade_rule)
     indexes, beta = hitting_time(T, 6, 0, 0) # calculates time until we have six woods
     print(indexes)
     print(beta)
