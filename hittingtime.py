@@ -41,8 +41,16 @@ def hitting_time(P, w_needed, b_needed, g_needed):
     indices = sorted(list(set(range(343))-set(to_delete)))
     return indices, beta
 
-resources = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 2.0], [2.0, 0.0, 0.0], [0.0, 0.0, 3.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 2.0]]
-T = transition_matrix(resources)
-indexes, beta = hitting_time(T, 5, 0, 0) # calculates time until we can afford a VP card
-print(indexes)
-print(beta)
+if __name__ == '__main__':
+    resources = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 2.0], [2.0, 0.0, 0.0], [0.0, 0.0, 3.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 2.0]]
+    def trade_rule(w, b, g):
+        # we just want six wood
+        if b >= 4:
+            w, b = w+1, b-4
+        if g >= 4:
+            w, g = w+1, g-4
+        return min(6,w), min(6,b), min(6,g)
+    T = transition_matrix(resources)
+    indexes, beta = hitting_time(T, 6, 0, 0) # calculates time until we have six woods
+    print(indexes)
+    print(beta)
