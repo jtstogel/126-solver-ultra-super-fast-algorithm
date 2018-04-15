@@ -16,9 +16,9 @@ def transition_matrix(resources, trade_rule = lambda x,y,z:(x,y,z)):
     P = np.zeros((343, 343))
     for i in range(343):
         w, b, g = decode(i)
-        for k, recieved_resources in enumerate(resources):
-            wresc, bresc, gresc = recieved_resources
-            wnew, bnew, gnew = min(6, w + wresc), min(6, b + bresc), min(6, g + gresc)
+        for k, received_resources in enumerate(resources):
+            wresc, bresc, gresc = received_resources
+            wnew, bnew, gnew = min(6, w + int(wresc)), min(6, b + int(bresc)), min(6, g + int(gresc))
             wnew, bnew, gnew = trade_rule(wnew, bnew, gnew)
             j = encode(wnew, bnew, gnew)
             P[i][j] += DICE_ROLL_PROBS[k]
