@@ -1,4 +1,5 @@
 import numpy as np
+import hello
 
 # hand = (w, b, g)
 LIMIT = 7 # can have 0-6 of each resource
@@ -9,9 +10,8 @@ def encode(w, b, g):
 def decode(n):
     x = n % (LIMIT * LIMIT)
     return (n // (LIMIT * LIMIT), x // LIMIT, x % LIMIT)
-"""
+
 def transition_matrix(resources, trade_rule = lambda x,y,z:(x,y,z)):
-    returns matrix T[i, j] = P(transition from state i to state j)
     DICE_ROLL_PROBS = 1/36 * np.array([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1])
     P = np.zeros((343, 343))
     for i in range(343):
@@ -170,7 +170,7 @@ def hitting_time_using_P(start, end, P):
     beta = solve(Z, n)
     j = int(encode(*start))
     return beta[to_include.index(j)], beta, to_include
-"""
+
 def solve(P, n):
     P -= np.eye(n)
     neg_one = -np.ones(n)
@@ -190,8 +190,12 @@ def should_include(to_at_least_wbg):
 def select_section(P, include):
     return P[np.ix_(include, include)]
 
-def hitting_time_best(start, end, resources, trade_rule=lambda x,y,z: (x,y,z)):
-    to_include = sorted(should_include(end))
+def make_trans_matrix(resources, trade_rule, to_include):
+    P = np.zeros(343*343)
+    to_include = np.array(to_include)
+    hello.hello_numpy(resources.reshape((33,)), np.array(range(343)), P)
+    P = P.reshape((343,343))
+    return P
     DICE_ROLL_PROBS = 1/36 * np.array([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1])
     P = np.zeros((343, 343))
 
@@ -203,7 +207,12 @@ def hitting_time_best(start, end, resources, trade_rule=lambda x,y,z: (x,y,z)):
             wnew, bnew, gnew = trade_rule(wnew, bnew, gnew)
             j = encode(wnew, bnew, gnew)
             P[i][j] += DICE_ROLL_PROBS[k]
+    return P
 
+
+def hitting_time_best(start, end, resources, trade_rule=lambda x,y,z: (x,y,z)):
+    to_include = sorted(should_include(end))
+    P = make_trans_matrix(resources, trade_rule, to_include)
     include = np.array(to_include)
     Z = select_section(P, include)
     n = len(include)
@@ -241,4 +250,6 @@ def mainN(n):
 
 import cProfile
 if __name__ == "__main__":
+    resources = [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 0.0, 2.0], [2.0, 0.0, 0.0], [0.0, 0.0, 3.0], [0.0, 0.0, 1.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 0.0], [0.0, 1.0, 2.0]]
+    print(list(make_trans_matrix(resources, lambda x,y,z:(x,y,z), list(range(343))).reshape(343*343)))
     cProfile.run("mainN(1000)")
