@@ -41,6 +41,13 @@ def hitting_time2(P, w_needed, b_needed, g_needed):
     indices = sorted(list(set(range(343))-set(to_delete)))
     return indices, beta
 
+    
+
+def solve(P, n):
+    P -= np.eye(n)
+    neg_one = -np.ones(n)
+    return np.linalg.solve(P, neg_one)
+
 
 def hitting_time(from_wbg, to_at_least_wbg, resources_per_roll, trade_rule=lambda x,y,z:(x,y,z)):
     fw,fb,fg = from_wbg
@@ -74,9 +81,7 @@ def hitting_time(from_wbg, to_at_least_wbg, resources_per_roll, trade_rule=lambd
             if j in indexes:
                 P[indexes[i]][indexes[j]] += DICE_ROLL_PROBS[k]
     # solve
-    P -= np.eye(n)
-    neg_one = -np.ones(n)
-    beta = np.linalg.solve(P, neg_one)
+    beta = solve(P, n)
     i = indexes[encode(*from_wbg)]
     return beta[i], beta, indexes
 
