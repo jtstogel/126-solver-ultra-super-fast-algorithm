@@ -26,39 +26,54 @@ def resource_hitting_time(board, x, y):
                 resource = board.resources[yy, xx]
                 cur_resources[die - 2][resource] += 1
     task = Task()
+    if board.is_port(encode_loc(x, y)):
+        port_num = board.which_port(encode_loc(x, y)) 
+        if port_num == 3:
+            task.trade_costs = [3, 3, 3]
+        else:
+            task.trade_costs = Task.trade_costs[:]
+            task.trade_costs[port_num] = 2
     task.resources_needed = (2, 2, 2)
-    return hitting_time_best((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
+    ht = hitting_time_best((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
+    #print(ht, x, y)
+    return ht
 
+#Best hyperparams
+# h1, h2: (3, 8) OR (7, 1) 
 
+h1 = 7#3
+h2 = 1#8
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
+        global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
+        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
 
 class SettlementGoal(Goal):
     def estimate_weight(self, player, htime):
+        global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
+        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
 
 class PortGoal(SettlementGoal):
     def estimate_weight(self, player, htime):
+        global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
+        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
 
 class CardGoal(Goal):
     def estimate_weight(self, player, htime):
         v = player.points
         if v == 9:
-            return htime
+            return h1 * (1 / (0.1+htime))
         return .1
 
-
-TRADE_COST = (4, 4, 4)
 class Task:
-    resources_needed = 0
+    resources_needed = (0, 0, 0)
+    trade_costs = [4, 4, 4] #static
     def __init__(self, x=-1, y=-1):
         self.x, self.y = x, y
     
@@ -66,11 +81,10 @@ class Task:
         return lambda w, b, g: self.trading_rule(w, b, g)[0]
         
     def trading_rule(self, w, b, g):
-        global TRADE_COST
         current = [w, b, g]
         do_trade = [None, None, None]
         for i in range(3):
-            if current[i] >= self.resources_needed[i] + TRADE_COST[i]:
+            if current[i] >= self.resources_needed[i] + self.trade_costs[i]:
                 diff = np.array(self.resources_needed) - np.array(current)
                 trade_idx = np.argmax(diff)
                 if diff[trade_idx] > 0:
@@ -84,6 +98,7 @@ class Task:
         result, trades = self.trading_rule(w, b, g)
         for i in range(3):
             if trades[i] != None:
+                #print(trades, player.resources, Task.trade_costs)
                 player.trade(trades[i][0], trades[i][1])
     
     def execute(self, player):
@@ -121,6 +136,12 @@ class SettlementTask(Task):
             #print("building settlement at (%d %d)!" % (self.x, self.y))
             player.buy("settlement", self.x, self.y)
             player.available_locations.add((self.x, self.y))
+            if player.board.is_port(encode_loc(self.x, self.y)):
+                port_num = player.board.which_port(encode_loc(self.x, self.y)) 
+                if port_num == 3:
+                    Task.trade_costs = [3, 3, 3]
+                else:
+                    Task.trade_costs[port_num] = 2
             return True
         return False
 
@@ -343,6 +364,9 @@ def average_resources_per_turn(board, locations):
     return r
                     
 def planBoard(board):
+    #Init
+    Task.trade_costs = [4, 4, 4]
+
     scored = []
     for x in range(5):
         for y in range(5):
@@ -396,13 +420,19 @@ if __name__ == "__main__":
         for i in range(n):
             board = make_board_safe()
             trials.append(simulate_game(action, planBoard, board, 1))
-            print(i)
+            #print(i)
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
-        #print(trials,"\n")
+        print(trials,"\n")
         print(stats.describe(trials))
         print()
 
+# for i in range(1, 11):
+#     for j in range(1, 11):
+#         h1 = j
+#         h2 = i
+#         print('Using h1={0}, h2={1}'.format(h1, h2))
+#         main(80)
     import cProfile
-    cProfile.run("main(100)")
+    cProfile.run("main(1000)")
