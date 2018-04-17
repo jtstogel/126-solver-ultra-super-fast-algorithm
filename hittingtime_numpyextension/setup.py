@@ -15,8 +15,8 @@ def configuration(parent_package='', top_path=None):
       config = Configuration('',
                              parent_package,
                              top_path)
-      config.add_extension('hello',
-                           ['hello.c'],
+      config.add_extension('fast_transition_matrix',
+                           ['transition_matrix.c'],
                            extra_info=info)
 
       return config

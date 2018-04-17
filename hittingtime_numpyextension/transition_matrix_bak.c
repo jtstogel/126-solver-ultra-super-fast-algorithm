@@ -5,11 +5,6 @@
 #include "numpy/npy_3kcompat.h"
 
 // Module method definitions
-static PyObject* hello_world_c(PyObject *self, PyObject *args) {
-    printf("Hello, world!\n");
-    Py_RETURN_NONE;
-}
-
 void decode(int e, int *w, int *b, int *g) {
     *w = e / 49;
     int x = e % 49;
@@ -23,8 +18,43 @@ void encode(int *e, int w, int b, int g) {
 //    printf("%d %d %d -> %d\n", *e);
 }
 
+static PyObject *my_callback = NULL;
 
-static PyObject* hello_numpy_c(PyObject *dummy, PyObject *args)
+static PyObject *
+set_trade_rule(PyObject *dummy, PyObject *args)
+{
+    PyObject *result = NULL;
+    PyObject *temp;
+
+    if (PyArg_ParseTuple(args, "O:set_callback", &temp)) {
+        if (!PyCallable_Check(temp)) {
+            PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+            return NULL;
+        }
+        Py_XINCREF(temp);         /* Add a reference to new callback */
+        Py_XDECREF(my_callback);  /* Dispose of previous callback */
+        my_callback = temp;       /* Remember new callback */
+        /* Boilerplate to return "None" */
+        Py_INCREF(Py_None);
+        result = Py_None;
+    }
+    return result;
+}
+
+
+void call_trade_rule(int w, int b, int g, int *wn, int *bn, int *gn) {
+    PyObject *arglist;
+    PyObject *result;
+    arglist = Py_BuildValue("iii", w, b, g);
+    result = PyEval_CallObject(my_callback, arglist);
+    if (!PyArg_ParseTuple(result, "iii", wn, bn, gn))
+        return;
+    Py_DECREF(arglist);
+}
+
+
+
+static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
 {
 //    printf("in!!!!!!!!!!!!!!!\n");
     PyObject *resourcesArg=NULL;
@@ -66,10 +96,10 @@ static PyObject* hello_numpy_c(PyObject *dummy, PyObject *args)
             bn = bn <= 6 ? bn : 6;
             gn = g + resources[3*k+2];
             gn = gn <= 6 ? gn : 6;
-            
-            //wn = wn <= 6 ? wn : 6;
-            //bn = bn <= 6 ? bn : 6;
-            //gn = gn <= 6 ? gn : 6;
+            call_trade_rule(wn, bn, gn, &wn, &bn, &gn);
+            wn = wn <= 6 ? wn : 6;
+            bn = bn <= 6 ? bn : 6;
+            gn = gn <= 6 ? gn : 6;
             encode(&eTo, wn, bn, gn);
             result[eFrom*343+eTo] += probabilities[k];
         }
@@ -83,30 +113,30 @@ static PyObject* hello_numpy_c(PyObject *dummy, PyObject *args)
 }
 
 
-static PyMethodDef hello_methods[] = {
+static PyMethodDef fast_transition_matrix_methods[] = {
         {
-                "hello_python", hello_world_c, METH_VARARGS,
-                "Print 'hello xxx'"
+                "populate_transition_matrix", populate_transition_matrix, METH_VARARGS,
+                "populates the transition matrix",
         },
-        {
-                "hello_numpy", hello_numpy_c, METH_VARARGS,
-                "numpy function tester",
-        },
+	    {
+		    "set_trade_rule", set_trade_rule, METH_VARARGS,
+		    "set the trade_rule function",
+	    },
         {NULL, NULL, 0, NULL}
 };
 
 
-static struct PyModuleDef hello_definition = {
+static struct PyModuleDef fast_transition_matrix_definition = {
         PyModuleDef_HEAD_INIT,
-        "hello",
-        "A Python module that prints 'hello world' from C code.",
+        "fast_transition_matrix",
+        "A Python module that populates a transition matrix according to a trading rule.",
         -1,
-        hello_methods
+        fast_transition_matrix_methods
 };
 
 
-PyMODINIT_FUNC PyInit_hello(void) {
+PyMODINIT_FUNC PyInit_fast_transition_matrix(void) {
     Py_Initialize();
     import_array();
-    return PyModule_Create(&hello_definition);
+    return PyModule_Create(&fast_transition_matrix_definition);
 }
