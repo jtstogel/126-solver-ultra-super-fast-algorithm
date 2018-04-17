@@ -18,6 +18,41 @@ void encode(int *e, int w, int b, int g) {
 //    printf("%d %d %d -> %d\n", *e);
 }
 
+static PyObject *my_callback = NULL;
+
+static PyObject *
+set_trade_rule(PyObject *dummy, PyObject *args)
+{
+    PyObject *result = NULL;
+    PyObject *temp;
+
+    if (PyArg_ParseTuple(args, "O:set_callback", &temp)) {
+        if (!PyCallable_Check(temp)) {
+            PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+            return NULL;
+        }
+        Py_XINCREF(temp);         /* Add a reference to new callback */
+        Py_XDECREF(my_callback);  /* Dispose of previous callback */
+        my_callback = temp;       /* Remember new callback */
+        /* Boilerplate to return "None" */
+        Py_INCREF(Py_None);
+        result = Py_None;
+    }
+    return result;
+}
+
+
+void call_trade_rule(int w, int b, int g, int *wn, int *bn, int *gn) {
+    PyObject *arglist;
+    PyObject *result;
+    arglist = Py_BuildValue("iii", w, b, g);
+    result = PyEval_CallObject(my_callback, arglist);
+    if (!PyArg_ParseTuple(result, "iii", wn, bn, gn))
+        return;
+    Py_DECREF(arglist);
+}
+
+
 // All we take in is a flattened resources array, an array [w, b, g] and an array for the trade rule
 // This will return a 2d matrix that needs to be solved, and a list of indexes D st Beta[D[encode(w,b,g)]] is the expected value for starting at (w,b,g)
 static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
@@ -51,11 +86,10 @@ static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
     int g_goal = (int) goal[2];
     int *D = calloc(343, sizeof(int));
     int i = 0;
-    int w, b, g;
     int e;
-    for (w = 0; w < 7; w++) {
-        for(b = 0; b < 7; b++) {
-            for (g = 0; g < 7; g++) {
+    for (int w = 0; w < 7; w++) {
+        for(int b = 0; b < 7; b++) {
+            for (int g = 0; g < 7; g++) {
                 encode(&e, w, b, g);
                 if ((w >= w_goal) && (b >= b_goal) && (g >= g_goal)) {
                     D[e] = -1; // We don't get a place in the final array
@@ -71,11 +105,10 @@ static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
     /*
      * my code starts here
      */
-    int wn, bn, gn, eFrom, eTo;
-    for (eFrom = 0; eFrom < 343; eFrom++) {
+    for (int eFrom = 0; eFrom < 343; eFrom++) {
         if (D[eFrom] == -1) continue; // Don't do anything with this if it's not in our array
+        int wn, bn, gn, eTo, w, b, g;
         decode(eFrom, &w, &b, &g);    // Get the corresponding w,b,g
-
         for (int k = 0; k < 11; k++) {
             wn = w + resources[3*k];
             wn = wn <= 6 ? wn : 6;
@@ -83,6 +116,7 @@ static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
             bn = bn <= 6 ? bn : 6;
             gn = g + resources[3*k+2];
             gn = gn <= 6 ? gn : 6;
+//            call_trade_rule(wn, bn, gn, &wn, &bn, &gn);
             encode(&eTo, wn, bn, gn);
             if (eTo >= 343 || eTo < 0) {
                 PyErr_SetString(PyExc_ValueError, "Ooops.");
@@ -124,6 +158,10 @@ static PyMethodDef fast_transition_matrix_methods[] = {
         {
                 "populate_transition_matrix", populate_transition_matrix, METH_VARARGS,
                 "populates the transition matrix",
+        },
+        {
+                "set_trade_rule", set_trade_rule, METH_VARARGS,
+                "set_trade_rule",
         },
         {NULL, NULL, 0, NULL}
 };
