@@ -27,7 +27,7 @@ def resource_hitting_time(board, x, y):
                 cur_resources[die - 2][resource] += 1
     task = Task()
     task.resources_needed = (2, 2, 2)
-    return hitting_time_best((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
+    return hitting_time((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
 
 
 class CityGoal(Goal):
@@ -180,7 +180,7 @@ def hitting_time_for_a_road(player, roadTask):
     w, b, g = (1, 1, 0)
     trade_rule = roadTask.make_trading_rule(player)
     resources_per_roll = player.board.get_resources()
-    exp,beta,indexes = hitting_time_best((0,0,0), (w,b,g), resources_per_roll, trade_rule)
+    exp,beta,indexes = hitting_time((0,0,0), (w,b,g), resources_per_roll, trade_rule)
     return exp # time from no resources
 
 def approxeq(a, b):
@@ -200,13 +200,7 @@ def hitting_time_until_task(player, task, MEMO):
         return 0
     trade_rule = task.make_trading_rule(player)
     resources_per_roll = player.board.get_resources()
-#    exp4, _, _ = hitting_time(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
-#    exp3, _, _ = hitting_time_lst(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
-#    exp2, _, _ = hitting_time_old(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
-    exp, beta, indexes = hitting_time_best(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
-#    if not (approxeq(exp, exp2) and approxeq(exp2, exp3) and approxeq(exp3, exp4)):
-#        print(repr(exp), repr(exp2))
-#        raise Exception()
+    exp, beta, indexes = hitting_time(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
     MEMO[type(task)] = exp
     return MEMO[type(task)]
 
@@ -369,6 +363,12 @@ def not_safe(board):
             scored.append((avg, (x,y)))
     return True
 
+def make_board():
+    width, height = 4, 4
+    dice = get_random_dice_arrangement(width, height)
+    resources = np.random.randint(0, 3, (height, width))
+    return Catan(dice, resources)
+
 def make_board_safe():
     def make_board():
         width, height = 4, 4
@@ -394,7 +394,7 @@ if __name__ == "__main__":
         num_trials = n
         trials = []
         for i in range(n):
-            board = make_board_safe()
+            board = make_board()
             trials.append(simulate_game(action, planBoard, board, 1))
             print(i)
         trials = np.array(trials)
