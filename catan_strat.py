@@ -15,21 +15,45 @@ class Goal:
         self.tasks = list(tasks)
         self.x, self.y = x, y
 
+def resource_hitting_time(board, x, y):
+    cur_resources = board.get_resources()
+    for dx in [-1, 0]: 
+        for dy in [-1, 0]:
+            xx = x + dx
+            yy = y + dy
+            if board.is_tile(xx, yy): 
+                die = board.dice[yy, xx] 
+                resource = board.resources[yy, xx]
+                cur_resources[die - 2][resource] += 1
+    task = Task()
+    task.resources_needed = (2, 2, 2)
+    return hitting_time_best((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
+
+
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
-        return 1 / (0.1+htime) # TODO
+        v = player.points
+        p = resource_hitting_time(player.board, self.x, self.y)
+        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
 
 class SettlementGoal(Goal):
     def estimate_weight(self, player, htime):
-        return 20 / (0.1+htime) # TODO
+        v = player.points
+        p = resource_hitting_time(player.board, self.x, self.y)
+        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
 
 class PortGoal(SettlementGoal):
     def estimate_weight(self, player, htime):
-        return 20 / (0.1+htime) # TODO
+        v = player.points
+        p = resource_hitting_time(player.board, self.x, self.y)
+        return 20 / (0.1+htime) + (20 - ((20 / 9) * v)) / (0.1 + p)
 
 class CardGoal(Goal):
     def estimate_weight(self, player, htime):
-        return 0.1 # TODO
+        v = player.points
+        if v == 9:
+            return htime
+        return .1
 
 
 TRADE_COST = (4, 4, 4)
@@ -376,7 +400,7 @@ if __name__ == "__main__":
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
-        print(trials,"\n")
+        #print(trials,"\n")
         print(stats.describe(trials))
         print()
 
