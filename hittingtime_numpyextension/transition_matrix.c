@@ -89,6 +89,10 @@ static PyObject* populate_transition_matrix(PyObject *dummy, PyObject *args)
                 return NULL;
             }
             eTo = (int) trade_rule[eTo];
+            if (eTo >= 343 || eTo < 0) {
+                printf("Invalid trade rule output corresponding to encoded value of: %d\n", eTo);
+                PyErr_SetString(PyExc_ValueError, "The trade rule outputed an invalid resource\n");
+            }
             if (D[eTo] == -1) continue; // It's not in our array, so why bother
             P[D[eFrom]*N+D[eTo]] += probabilities[k];
         }
