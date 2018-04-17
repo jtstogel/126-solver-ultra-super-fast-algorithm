@@ -32,21 +32,48 @@ class CardGoal(Goal):
         return 0.1 # TODO
 
 
+TRADE_COST = (4, 4, 4)
 class Task:
+    resources_needed = 0
     def __init__(self, x=-1, y=-1):
         self.x, self.y = x, y
     
     def make_trading_rule(self, player):
-        return lambda x,y,z: (x,y,z)  # TODO
+        return lambda w, b, g: self.trading_rule(w, b, g)[0]
+        
+    def trading_rule(self, w, b, g):
+        global TRADE_COST
+        current = [w, b, g]
+        do_trade = [None, None, None]
+        for i in range(3):
+            if current[i] >= self.resources_needed[i] + TRADE_COST[i]:
+                diff = np.array(self.resources_needed) - np.array(current)
+                trade_idx = np.argmax(diff)
+                if diff[trade_idx] > 0:
+                    current[i] -= 4
+                    current[trade_idx] += 1
+                    do_trade[i] = (i, trade_idx)
+        return tuple(current), do_trade
+    
+    def execute_trade(self, player):
+        w, b, g = player.resources
+        result, trades = self.trading_rule(w, b, g)
+        for i in range(3):
+            if trades[i] != None:
+                player.trade(trades[i][0], trades[i][1])
     
     def execute(self, player):
         pass
+    
+    def test(self):
+        return self.resources_needed
 
 class CardTask(Task):
     resources_needed = (1, 2, 2)
     def execute(self, player):
+        self.execute_trade(player)
         if player.if_can_buy("card"):
-            print("buying a development card!")
+            #print("buying a development card!")
             player.buy("card")
             return True
         return False
@@ -54,8 +81,9 @@ class CardTask(Task):
 class CityTask(Task):
     resources_needed = (0, 3, 3)
     def execute(self, player):
+        self.execute_trade(player)
         if player.if_can_buy("city"):
-            print("building city at (%d, %d)!" % (self.x, self.y))
+            #print("building city at (%d, %d)!" % (self.x, self.y))
             player.buy("city", self.x, self.y)
             player.available_locations.add((self.x, self.y))
             return True
@@ -64,8 +92,9 @@ class CityTask(Task):
 class SettlementTask(Task):
     resources_needed = (2, 1, 1)
     def execute(self, player):
+        self.execute_trade(player)
         if player.if_can_buy("settlement"):
-            print("building settlement at (%d %d)!" % (self.x, self.y))
+            #print("building settlement at (%d %d)!" % (self.x, self.y))
             player.buy("settlement", self.x, self.y)
             player.available_locations.add((self.x, self.y))
             return True
@@ -74,8 +103,9 @@ class SettlementTask(Task):
 class RoadTask(Task):
     resources_needed = (1, 1, 0)
     def execute(self, player):
+        self.execute_trade(player)
         if player.if_can_buy("road"):
-            print("building road from", self.x, "to", self.y)
+            #print("building road from", self.x, "to", self.y)
             player.buy("road", self.x, self.y)
             player.available_locations.add(self.x)
             player.available_locations.add(self.y)
