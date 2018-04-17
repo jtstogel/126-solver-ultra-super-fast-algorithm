@@ -149,7 +149,7 @@ def hitting_time_until_task(player, task, MEMO):
 #    exp4, _, _ = hitting_time(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
 #    exp3, _, _ = hitting_time_lst(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
 #    exp2, _, _ = hitting_time_old(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
-    exp, beta, indexes = hitting_time_old(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
+    exp, beta, indexes = hitting_time_best(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
 #    if not (approxeq(exp, exp2) and approxeq(exp2, exp3) and approxeq(exp3, exp4)):
 #        print(repr(exp), repr(exp2))
 #        raise Exception()
@@ -302,6 +302,30 @@ def planBoard(board):
 
 ##############################################
 
+
+def not_safe(board):
+    scored = []
+    for x in range(5):
+        for y in range(5):
+            avg = average_resources_per_turn(board, [(x,y)])
+            if avg[0]==0 or avg[1]==0 or avg[2]==0:
+                pass
+            else:
+                return False
+            scored.append((avg, (x,y)))
+    return True
+
+def make_board_safe():
+    def make_board():
+        width, height = 4, 4
+        dice = get_random_dice_arrangement(width, height)
+        resources = np.random.randint(0, 3, (height, width))
+        return Catan(dice, resources)
+    board = make_board()
+    while not_safe(board):
+        board = make_board()
+    return board
+
 if __name__ == "__main__":
     from scipy import stats
     from time import time
@@ -316,6 +340,7 @@ if __name__ == "__main__":
         num_trials = n
         trials = []
         for i in range(n):
+            board = make_board_safe()
             trials.append(simulate_game(action, planBoard, board, 1))
             print(i)
         trials = np.array(trials)
@@ -326,4 +351,4 @@ if __name__ == "__main__":
         print()
 
     import cProfile
-    cProfile.run("main(1000)")
+    cProfile.run("main(100)")
