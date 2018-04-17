@@ -34,7 +34,7 @@ def resource_hitting_time(board, x, y):
             task.trade_costs = Task.trade_costs[:]
             task.trade_costs[port_num] = 2
     task.resources_needed = (2, 2, 2)
-    ht = hitting_time_best((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
+    ht = hitting_time((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
     return ht
 
 #Best hyperparams
@@ -419,7 +419,7 @@ if __name__ == "__main__":
         for i in range(n):
             board = make_board()
             trials.append(simulate_game(action, planBoard, board, 1))
-            #print(i)
+            print(i)
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")

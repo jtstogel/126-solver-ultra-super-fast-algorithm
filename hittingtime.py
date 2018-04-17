@@ -60,7 +60,7 @@ def solve(P, n):
     return np.linalg.solve(P, neg_one)
 
 NO_TRADING = np.array(range(343))
-def hitting_time(start, end, resources, trade_rule=None):
+def hitting_time_extension(start, end, resources, trade_rule=None):
     if trade_rule is None:
         trade_rule = NO_TRADING
     else:
@@ -78,12 +78,16 @@ def approxeq(a, b):
 
 def hitting_time_test(start, end, resources, trade_rule=None):
     exp_old, beta_old, indexes_old = hitting_time_old(start, end, resources, (lambda x,y,z:(x,y,z)) if trade_rule is None else trade_rule)
-    exp, beta, indexes             = hitting_time(    start, end, resources, trade_rule)
+    exp, beta, indexes             = hitting_time_extension(    start, end, resources, trade_rule)
     for i, e in enumerate(indexes_old):
         if not approxeq(beta_old[i], beta[indexes[e]]):
             print(beta_old[i], beta[indexes[e]])
             raise Exception()
     return exp, beta, indexes
+
+# this is a wrapper
+def hitting_time(start, end, resources, trade_rule=None):
+    return hitting_time_extension(start, end, resources, trade_rule)
 
 
 
