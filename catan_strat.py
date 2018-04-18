@@ -29,7 +29,7 @@ def resource_hitting_time(board, x, y):
     if board.is_port(encode_loc(x, y)):
         port_num = board.which_port(encode_loc(x, y)) 
         if port_num == 3:
-            task.trade_costs = [3, 3, 3]
+            task.trade_costs = [min(3, t) for t in Task.trade_costs]
         else:
             task.trade_costs = Task.trade_costs[:]
             task.trade_costs[port_num] = 2
@@ -40,8 +40,8 @@ def resource_hitting_time(board, x, y):
 #Best hyperparams
 # h1, h2: (3, 8) OR (7, 1) 
 
-h1 = 7#3
-h2 = 1#8
+h1 = 3#3
+h2 = 8#8
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
         global h1, h2
@@ -87,7 +87,7 @@ class Task:
                 diff = np.array(self.resources_needed) - np.array(current)
                 trade_idx = np.argmax(diff)
                 if diff[trade_idx] > 0:
-                    current[i] -= 4
+                    current[i] -= self.trade_costs[i]
                     current[trade_idx] += 1
                     do_trade[i] = (i, trade_idx)
         return tuple(current), do_trade
@@ -138,7 +138,7 @@ class SettlementTask(Task):
             if player.board.is_port(encode_loc(self.x, self.y)):
                 port_num = player.board.which_port(encode_loc(self.x, self.y)) 
                 if port_num == 3:
-                    Task.trade_costs = [3, 3, 3]
+                    Task.trade_costs = [min(3, t) for t in Task.trade_costs]
                 else:
                     Task.trade_costs[port_num] = 2
             return True
@@ -416,10 +416,15 @@ if __name__ == "__main__":
         t = time()
         num_trials = n
         trials = []
+        bad_boards = []
         for i in range(n):
             board = make_board()
-            trials.append(simulate_game(action, planBoard, board, 1))
-            print(i)
+            turns = simulate_game(action, planBoard, board, 1)
+            trials.append(turns)
+            print(i, turns)
+            if turns > 150:
+                print(board.resources)
+                print(board.dice)
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
@@ -429,9 +434,9 @@ if __name__ == "__main__":
 
 # for i in range(1, 11):
 #     for j in range(1, 11):
-#         h1 = j
-#         h2 = i
+#         h1 = i
+#         h2 = j
 #         print('Using h1={0}, h2={1}'.format(h1, h2))
 #         main(80)
     import cProfile
-    cProfile.run("main(1000)")
+    cProfile.run("main(100)")
