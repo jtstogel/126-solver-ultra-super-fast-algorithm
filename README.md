@@ -7,11 +7,12 @@ We do have one global variable in our program, so please do not run any action c
 
 ## Installation
 We wrote a C extension for python to assist in computing hitting time.
-To install this, please cd into our directory and run `sh build_extension.sh`
+To compile this, please cd into our directory and run `sh build_extension.sh`
+It will compile the extension in `hittingtime_numpyextension` and move the created Python module back into the directory containing our catan code.
 
 This extension is written only for Python 3.5 and above. If it does not compile please let us know, as it has compiled on every unix machine we have tried it on. The `build_extension.sh` function just cd's into `hittingtime_numpyextension` and 
 
 ## Files
-The `catan_strat.py` file contains our `action` and `planBoard` functions. Please only import these two functions when testing our code. This file depends on our `hittingtime.py` file and the given `catan.py` file.
+The `catanAction.py` file contains our `action` and `planBoard` functions. Please only import these two functions when testing our code. This file depends on our `hittingtime.py` file and the given `catan.py` file.
 
 The `test_strat.py` file contains our testing code, which generates 100 boards and runs a single simulation on each.
