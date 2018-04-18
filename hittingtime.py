@@ -137,8 +137,8 @@ def hitting_time(start, end, resources, trade_rule=None):
     # don't even bother this function with tese queries please
     if start[0] >= end[0] and start[1] >= end[1] and start[2] >= end[2]:
         return 0
-    trade_rule_tuple = translate_trade_rule_into_tuple(trade_rule)
-    return hitting_time_tuple(start, end, resources, trade_rule_tuple)
+    # trade_rule_tuple = translate_trade_rule_into_tuple(trade_rule)
+    return hitting_time_tuple(start, end, resources, trade_rule)
 
 
 

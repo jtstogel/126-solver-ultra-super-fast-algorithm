@@ -17,7 +17,8 @@ def configuration(parent_package='', top_path=None):
                              top_path)
       config.add_extension('fast_transition_matrix',
                            ['transition_matrix.c'],
-                           extra_compile_args=['-std=gnu99', '-O3'],
+                           extra_compile_args=['-std=gnu99'],
+
                            extra_info=info)
 
       return config
