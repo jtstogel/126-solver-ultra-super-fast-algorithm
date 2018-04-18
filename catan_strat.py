@@ -16,50 +16,51 @@ class Goal:
 
 def resource_hitting_time(board, x, y):
     cur_resources = np.array(board.get_resources())
-    for dx in [-1, 0]: 
-        for dy in [-1, 0]:
-            xx = x + dx
-            yy = y + dy
-            if board.is_tile(xx, yy): 
-                die = board.dice[yy, xx] 
-                resource = board.resources[yy, xx]
-                cur_resources[die - 2][resource] += 1
+    if x >= 0 and y >= 0:
+        for dx in [-1, 0]: 
+            for dy in [-1, 0]:
+                xx = x + dx
+                yy = y + dy
+                if board.is_tile(xx, yy): 
+                    die = board.dice[yy, xx] 
+                    resource = board.resources[yy, xx]
+                    cur_resources[die - 2][resource] += 1
     task = Task()
-    weights = [4.0, 2.0, 1.0]
     task.trade_costs = updated_trade_costs_with_settlement(board, task.trade_costs, x, y)
-    # The second one is supposed to be a city, but we cant actually do that...
-    building_types = [(2, 1, 1), (0, 2, 2), (1, 1, 0)]
-    score = 0
-    for a, b in zip(weights, building_types):
+    def htime(b):
         task.resources_needed = b
-        score += a * hitting_time((0,0,0), task.resources_needed, cur_resources, trading_rule_tuple_from_task(task))[0]
-    return score / sum(weights)
+        return hitting_time((0,0,0), task.resources_needed, cur_resources, trading_rule_tuple_from_task(task))[0]
+    
+    return htime((2, 2, 2)) # + 0.5 * htime((1, 1, 0)) + 0.2 * htime((0, 2, 2))
 
 #Best hyperparams
 # h1, h2: (3, 8) OR (7, 1) 
 
 h1 = 3
-h2 = 2
-h3 = 3
+h2 = 10
+h3 = 5
 
-def weight_function(htime, p, v):
-    progress = v / 10.0 # allow for linear degredatino w.r.t time
-    minimize = 2.0 * (1 - v / 10.0) * p + htime
-    return - minimize
+def weight_function(htime, p, c, v):
+    speed = (1 / (0.1+htime))
+    prosperity = (1 - (v / 10.0)) / (0.1 + p)
+    return h1 * speed + h2 * speed * prosperity + h3 * prosperity
+
 
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
         global h1, h2 # you don't need the global keyword to use non-local variables, only to edit
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return weight_function(htime, p, v)
+        c = resource_hitting_time(player.board, -1, -1)
+        return weight_function(htime, p, c, v)
 
 class SettlementGoal(Goal):
     def estimate_weight(self, player, htime):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return weight_function(htime, p, v)
+        c = resource_hitting_time(player.board, -1, -1)
+        return weight_function(htime, p, c, v)
 
 
 class PortGoal(SettlementGoal):
@@ -67,7 +68,8 @@ class PortGoal(SettlementGoal):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return weight_function(htime, p, v)
+        c = resource_hitting_time(player.board, -1, -1)
+        return weight_function(htime, p, c, v)
 
 
 class CardGoal(Goal):
@@ -76,8 +78,8 @@ class CardGoal(Goal):
         if v == 9 and htime < 1:
              return float("inf")
         if v == 8:
-             return -0.1 * htime
-        return float("-inf")
+             return h1 * (1 / (0.1+htime))
+        return 0.1
 
 
 def trading_rule_tuple_from_task(task):
@@ -95,14 +97,18 @@ def static_trading_rule(start, resources_needed, trade_costs):
     w, b, g = start
     current = [w, b, g]
     do_trade = [None, None, None]
-    for i in range(3):
+    changed = True
+    while changed:
+      changed = False
+      for i in range(3):
         if current[i] >= resources_needed[i] + trade_costs[i]:
-            diff = np.array(resources_needed) - np.array(current)
-            trade_idx = np.argmax(diff)
-            if diff[trade_idx] > 0 and current[trade_idx] < 6:
-                current[i] -= trade_costs[i] # The bug was here, it subtracted 4 instead of trade_costs[i]
-                current[trade_idx] += 1
-                do_trade[i] = (i, trade_idx)
+          diff = np.array(resources_needed) - np.array(current)
+          trade_idx = np.argmax(diff)
+          if diff[trade_idx] > 0 and current[trade_idx] < 6:
+            current[i] -= trade_costs[i] # The bug was here, it subtracted 4 instead of trade_costs[i]
+            current[trade_idx] += 1
+            do_trade[i] = (i, trade_idx)
+            changed = True
     return tuple(current), do_trade
 
 
@@ -364,6 +370,7 @@ def action(self):
         raise Exception()
     if self.turn_counter == 0:
         # What are we to do on our first turn?
+        Task.trade_costs = (4, 4, 4)
         x, y = self.preComp
         self.available_locations = set()
         settlementTask = SettlementTask(x, y)
@@ -407,11 +414,16 @@ def planBoard(board):
     Task.trade_costs = (4, 4, 4)
     task = Task()
     hitting_times = []
+    better_hitting_times = []
     for x in range(5):
         for y in range(5):
             ht = resource_hitting_time(board, x, y)
             hitting_times.append((ht, (x,y)))
-    return min(hitting_times)[1]
+            w, b, g = average_resources_per_turn(board, [(x,y)])
+            if w > 0 and b > 0 and g > 0:
+                better_hitting_times.append((ht, (x,y)))
+    return min(better_hitting_times)[1] if better_hitting_times else min(hitting_times)[1]
+
 
 ##############################################
 
@@ -461,19 +473,26 @@ if __name__ == "__main__":
         for i in range(n):
             board = make_board()
             trials.append(simulate_game(action, planBoard, board, 1))
-            print(i, trials[-1], np.mean(np.array(trials)), np.std(np.array(trials)))
+            # print(i, trials[-1], np.mean(np.array(trials)), np.std(np.array(trials)))
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
         print(trials,"\n")
         print(stats.describe(trials))
         print()
+        return stats.describe(trials)
 
-# for i in range(1, 11):
-#     for j in range(1, 11):
-#         h1 = j
-#         h2 = i
-#         print('Using h1={0}, h2={1}'.format(h1, h2))
-#         main(80)
-    import cProfile
-    cProfile.run("main(1000)")
+K = []
+for i in range(1, 11):
+    for j in range(1, 11):
+        for k in range(1, 11):
+            h1 = j
+            h2 = i
+            h3 = k
+            print('Using h1={0}, h2={1}, h3={2}'.format(h1, h2, h3))
+            out = main(500)
+            with open("out.txt", "a") as f:
+                 f.write("Using h1:" + str(h1) + ", h2:" + str(h2) + ", h3:" + str(h3) + "got\n" + str(out) + "\n")
+import cProfile
+cProfile.run("main(250)")
+
