@@ -3,7 +3,7 @@ import numpy as np
 from catan import Catan, CatanException, get_random_dice_arrangement, Player, simulate_game, simulate_game_and_save
 from itertools import repeat
 
-TURNS_UNTIL_RECOMPUTE = 3
+TURNS_UNTIL_RECOMPUTE = 2
 
 ###################################
 
@@ -31,14 +31,18 @@ def resource_hitting_time(board, x, y):
         task.resources_needed = b
         return hitting_time((0,0,0), task.resources_needed, cur_resources, trading_rule_tuple_from_task(task))[0]
     
-    return htime((2, 2, 2)) # + 0.5 * htime((1, 1, 0)) + 0.2 * htime((0, 2, 2))
+    return htime((2, 2, 2)) # + 0.75 * htime((1, 1, 0)) + 0.5 * htime((0, 2, 2))
 
 #Best hyperparams
-# h1, h2: (3, 8) OR (7, 1) 
 
-h1 = 3
-h2 = 10
-h3 = 5
+# mean=59.095999999999997, variance=193.74452852852852, step = 1
+# mean=59.072000000000003, variance=202.62343943943947, step = 2
+h1, h2, h3, C, S, P = 3, 2, 2, 2, 3, 3 
+
+
+# mean=58.805999999999997, variance=203.8942582582582, step = 1
+# mean=58.615000000000002, variance=200.0067817817818, step = 2
+h1, h2, h3, C, S, P = 2, 2, 1, 2, 3, 1
 
 def weight_function(htime, p, c, v):
     speed = (1 / (0.1+htime))
@@ -418,7 +422,7 @@ def planBoard(board):
             w, b, g = average_resources_per_turn(board, [(x,y)])
             if w > 0 and b > 0 and g > 0:
                 better_hitting_times.append((ht, (x,y)))
-    return min(better_hitting_times)[1] if better_hitting_times else min(hitting_times)[1]
+    return min(better_hitting_times)[1] if better_hitting_times else min(hitting_times)[1] #
 
 
 ##############################################
@@ -462,31 +466,30 @@ if __name__ == "__main__":
     resources = np.random.randint(0, 3, (height, width))
     board = Catan(dice, resources)
 
-    def main(n):
+    def main(boards):
         t = time()
-        num_trials = n
         trials = []
-        for i in range(n):
-            board = make_board()
+        for board in boards:
             trials.append(simulate_game(action, planBoard, board, 1))
-            # print(i, trials[-1], np.mean(np.array(trials)), np.std(np.array(trials)))
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
-        #print(trials,"\n")
         print(stats.describe(trials))
         print()
         return stats.describe(trials)
-
+    import cProfile
+    cProfile.run("main([make_board() for i in range(100)])")
+"""
 from random import shuffle
 K = [(a,b,c,d,e,f) for a in range(1,4) for b in range(4) for c in range(4) for d in range(1,4) for e in range(1,4) for f in range(1,4)]
 shuffle(K)
+boards = [make_board() for i in range(250)]
 for arg in K:
             h1, h2, h3, C, S, P = arg
             print(arg)
-            out = main(500)
+            out = main(boards)
             with open("out.txt", "a") as f:
                  f.write("Using" +str(arg)+ "\n" + str(out) + "\n")
-import cProfile
-cProfile.run("main(250)")
+"""
+
 
