@@ -43,9 +43,9 @@ h2 = 2
 h3 = 3
 
 def weight_function(htime, p, v):
-    progress = v / 10.0
-    minimize = 2*p + htime
-    return -minimize
+    progress = v / 10.0 # allow for linear degredatino w.r.t time
+    minimize = 2.0 * (1 - v / 10.0) * p + htime
+    return - minimize
 
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
@@ -76,7 +76,7 @@ class CardGoal(Goal):
         if v == 9 and htime < 1:
              return float("inf")
         if v == 8:
-             return -0.5 * htime
+             return -0.1 * htime
         return float("-inf")
 
 
