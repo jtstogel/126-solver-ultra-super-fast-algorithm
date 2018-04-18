@@ -103,7 +103,10 @@ def calc_beta_extension(end_tuple, resources_flattened_tuple, trade_rule_tuple):
     P, D = ftm.populate_transition_matrix(np.array(resources_flattened_tuple), np.array(end_tuple), np.array(trade_rule_tuple))
     # all invalid entries are -1, all valid are >=0
     n = np.count_nonzero(D+1)
-    beta = solve(P.reshape((n,n)), n)
+    try:
+        beta = solve(P.reshape((n,n)), n)
+    except:
+        return [float("inf") for _ in range(n)], D
     return beta, D
 import math
 
@@ -136,8 +139,10 @@ def hitting_time_tuple(start, end, resources, trade_rule_tuple):
 def hitting_time(start, end, resources, trade_rule=None):
     # don't even bother this function with tese queries please
     if start[0] >= end[0] and start[1] >= end[1] and start[2] >= end[2]:
-        return 0
-    # trade_rule_tuple = translate_trade_rule_into_tuple(trade_rule)
+        return 0, [], []
+    traded = decode(trade_rule[encode(*tuple(int(x) for x in start))])
+    if traded[0] >= end[0] and traded[1] >= end[1] and traded[2] >= end[2]:
+        return 0, [], []
     return hitting_time_tuple(start, end, resources, trade_rule)
 
 
