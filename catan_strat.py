@@ -51,16 +51,16 @@ class CityGoal(Goal):
         global h1, h2 # you don't need the global keyword to use non-local variables, only to edit
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        c = resource_hitting_time(player.board, -1, -1)
-        return weight_function(htime, p, c, v)
+        #c = resource_hitting_time(player.board, -1, -1)
+        return C * weight_function(htime, p, 0, v)
 
 class SettlementGoal(Goal):
     def estimate_weight(self, player, htime):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        c = resource_hitting_time(player.board, -1, -1)
-        return weight_function(htime, p, c, v)
+        #c = resource_hitting_time(player.board, -1, -1)
+        return S * weight_function(htime, p, 0, v)
 
 
 class PortGoal(SettlementGoal):
@@ -68,8 +68,8 @@ class PortGoal(SettlementGoal):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        c = resource_hitting_time(player.board, -1, -1)
-        return weight_function(htime, p, c, v)
+        #c = resource_hitting_time(player.board, -1, -1)
+        return P * weight_function(htime, p, 0, v)
 
 
 class CardGoal(Goal):
@@ -97,18 +97,14 @@ def static_trading_rule(start, resources_needed, trade_costs):
     w, b, g = start
     current = [w, b, g]
     do_trade = [None, None, None]
-    changed = True
-    while changed:
-      changed = False
-      for i in range(3):
-        if current[i] >= resources_needed[i] + trade_costs[i]:
-          diff = np.array(resources_needed) - np.array(current)
-          trade_idx = np.argmax(diff)
-          if diff[trade_idx] > 0 and current[trade_idx] < 6:
-            current[i] -= trade_costs[i] # The bug was here, it subtracted 4 instead of trade_costs[i]
-            current[trade_idx] += 1
-            do_trade[i] = (i, trade_idx)
-            changed = True
+    for i in range(3):
+      if current[i] >= resources_needed[i] + trade_costs[i]:
+        diff = np.array(resources_needed) - np.array(current)
+        trade_idx = np.argmax(diff)
+        if diff[trade_idx] > 0 and current[trade_idx] < 6:
+          current[i] -= trade_costs[i] # The bug was here, it subtracted 4 instead of trade_costs[i]
+          current[trade_idx] += 1
+          do_trade[i] = (i, trade_idx)
     return tuple(current), do_trade
 
 
@@ -477,22 +473,20 @@ if __name__ == "__main__":
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
-        print(trials,"\n")
+        #print(trials,"\n")
         print(stats.describe(trials))
         print()
         return stats.describe(trials)
 
 from random import shuffle
-K = [(i,j,k) for i in range(11) for j in range(11) for k in range(11)]
+K = [(a,b,c,d,e,f) for a in range(1,4) for b in range(4) for c in range(4) for d in range(1,4) for e in range(1,4) for f in range(1,4)]
 shuffle(K)
-for i, j, k in K:
-            h1 = j
-            h2 = i
-            h3 = k
-            print('Using h1={0}, h2={1}, h3={2}'.format(h1, h2, h3))
-            out = main(1000)
+for arg in K:
+            h1, h2, h3, C, S, P = arg
+            print(arg)
+            out = main(500)
             with open("out.txt", "a") as f:
-                 f.write("Using h1:" + str(h1) + ", h2:" + str(h2) + ", h3:" + str(h3) + "got\n" + str(out) + "\n")
+                 f.write("Using" +str(arg)+ "\n" + str(out) + "\n")
 import cProfile
 cProfile.run("main(250)")
 
