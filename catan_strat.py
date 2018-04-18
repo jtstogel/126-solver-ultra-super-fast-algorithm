@@ -482,15 +482,15 @@ if __name__ == "__main__":
         print()
         return stats.describe(trials)
 
-K = []
-for i in range(1, 11):
-    for j in range(1, 11):
-        for k in range(1, 11):
+from random import shuffle
+K = [(i,j,k) for i in range(11) for j in range(11) for k in range(11)]
+shuffle(K)
+for i, j, k in K:
             h1 = j
             h2 = i
             h3 = k
             print('Using h1={0}, h2={1}, h3={2}'.format(h1, h2, h3))
-            out = main(500)
+            out = main(1000)
             with open("out.txt", "a") as f:
                  f.write("Using h1:" + str(h1) + ", h2:" + str(h2) + ", h3:" + str(h3) + "got\n" + str(out) + "\n")
 import cProfile
