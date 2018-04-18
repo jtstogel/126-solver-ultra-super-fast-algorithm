@@ -1,7 +1,6 @@
 from hittingtime import *
 import numpy as np
 from catan import Catan, CatanException, get_random_dice_arrangement, Player, simulate_game, simulate_game_and_save
-import matplotlib.pyplot as plt
 from itertools import repeat
 
 TURNS_UNTIL_RECOMPUTE = 3
@@ -16,7 +15,7 @@ class Goal:
         self.x, self.y = x, y
 
 def resource_hitting_time(board, x, y):
-    cur_resources = board.get_resources()
+    cur_resources = np.array(board.get_resources())
     for dx in [-1, 0]: 
         for dy in [-1, 0]:
             xx = x + dx
@@ -26,53 +25,90 @@ def resource_hitting_time(board, x, y):
                 resource = board.resources[yy, xx]
                 cur_resources[die - 2][resource] += 1
     task = Task()
-    if board.is_port(encode_loc(x, y)):
-        port_num = board.which_port(encode_loc(x, y)) 
-        if port_num == 3:
-            task.trade_costs = [3, 3, 3]
-        else:
-            task.trade_costs = Task.trade_costs[:]
-            task.trade_costs[port_num] = 2
-    task.resources_needed = (2, 2, 2)
-    ht = hitting_time((0,0,0), task.resources_needed, cur_resources, task.make_trading_rule(None))[0]
-    return ht
+    weights = [4.0, 2.0, 1.0]
+    task.trade_costs = updated_trade_costs_with_settlement(board, task.trade_costs, x, y)
+    # The second one is supposed to be a city, but we cant actually do that...
+    building_types = [(2, 1, 1), (0, 2, 2), (1, 1, 0)]
+    score = 0
+    for a, b in zip(weights, building_types):
+        task.resources_needed = b
+        score += a * hitting_time((0,0,0), task.resources_needed, cur_resources, trading_rule_tuple_from_task(task))[0]
+    return score / sum(weights)
 
 #Best hyperparams
 # h1, h2: (3, 8) OR (7, 1) 
 
-h1 = 7#3
-h2 = 1#8
+h1 = 3
+h2 = 2
+h3 = 3
+
+def weight_function(htime, p, v):
+    progress = v / 10.0
+    minimize = 2*p + htime
+    return -minimize
+
 class CityGoal(Goal):
     def estimate_weight(self, player, htime):
-        global h1, h2
+        global h1, h2 # you don't need the global keyword to use non-local variables, only to edit
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
+        return weight_function(htime, p, v)
 
 class SettlementGoal(Goal):
     def estimate_weight(self, player, htime):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
+        return weight_function(htime, p, v)
+
 
 class PortGoal(SettlementGoal):
     def estimate_weight(self, player, htime):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        return h1 * (1 / (0.1+htime)) + (h2 - ((h2 / 9) * v)) / (0.1 + p)
+        return weight_function(htime, p, v)
+
 
 class CardGoal(Goal):
     def estimate_weight(self, player, htime):
         v = player.points
-        if v == 9:
-            return h1 * (1 / (0.1+htime))
-        return .1
+        if v == 9 and htime < 1:
+             return float("inf")
+        if v == 8:
+             return -0.5 * htime
+        return float("-inf")
+
+
+def trading_rule_tuple_from_task(task):
+    return make_trading_rule_tuple(tuple(task.resources_needed), tuple(task.trade_costs))
+
+# Takes in these tuple parameters and returns a tuple of encoded trading rules
+from functools import lru_cache
+memoize = lru_cache(1024)
+@memoize
+def make_trading_rule_tuple(end, trade_costs):
+    return tuple(encode(*(static_trading_rule(decode(i), end, trade_costs)[0])) for i in range(343))
+
+# copy of the trading rule for Task but with self removed
+def static_trading_rule(start, resources_needed, trade_costs):
+    w, b, g = start
+    current = [w, b, g]
+    do_trade = [None, None, None]
+    for i in range(3):
+        if current[i] >= resources_needed[i] + trade_costs[i]:
+            diff = np.array(resources_needed) - np.array(current)
+            trade_idx = np.argmax(diff)
+            if diff[trade_idx] > 0 and current[trade_idx] < 6:
+                current[i] -= trade_costs[i] # The bug was here, it subtracted 4 instead of trade_costs[i]
+                current[trade_idx] += 1
+                do_trade[i] = (i, trade_idx)
+    return tuple(current), do_trade
+
 
 class Task:
     resources_needed = (0, 0, 0)
-    trade_costs = [4, 4, 4] #static
+    trade_costs = (4, 4, 4) 
     def __init__(self, x=-1, y=-1):
         self.x, self.y = x, y
     
@@ -80,24 +116,14 @@ class Task:
         return lambda w, b, g: self.trading_rule(w, b, g)[0]
         
     def trading_rule(self, w, b, g):
-        current = [w, b, g]
-        do_trade = [None, None, None]
-        for i in range(3):
-            if current[i] >= self.resources_needed[i] + self.trade_costs[i]:
-                diff = np.array(self.resources_needed) - np.array(current)
-                trade_idx = np.argmax(diff)
-                if diff[trade_idx] > 0:
-                    current[i] -= 4
-                    current[trade_idx] += 1
-                    do_trade[i] = (i, trade_idx)
-        return tuple(current), do_trade
+        return static_trading_rule((w,b,g), self.resources_needed, self.trade_costs)
     
     def execute_trade(self, player):
         w, b, g = player.resources
         result, trades = self.trading_rule(w, b, g)
         for i in range(3):
             if trades[i] != None:
-                #print(trades, player.resources, Task.trade_costs)
+                #print(trades, player.resources, self.trade_costs)
                 player.trade(trades[i][0], trades[i][1])
     
     def execute(self, player):
@@ -111,7 +137,6 @@ class CardTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("card"):
-            #print("buying a development card!")
             player.buy("card")
             return True
         return False
@@ -121,26 +146,44 @@ class CityTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("city"):
-            #print("building city at (%d, %d)!" % (self.x, self.y))
+            # print("building city at (%d, %d)!" % (self.x, self.y))
             player.buy("city", self.x, self.y)
             player.available_locations.add((self.x, self.y))
             return True
         return False
+
+def decide_port_number_else_None(board, x, y):
+    if board.is_port(encode_loc(x, y)):
+        return board.which_port(encode_loc(x, y))
+    return None
+
+
+def new_trading_costs_with_port(trade_costs, port_num):
+    if port_num == 3:
+         return (min(trade_costs[0], 3), min(trade_costs[1], 3), min(trade_costs[2], 3))
+    else:
+         # yes this is a little silly, but I like tuples much more, and it only has three elements so who cares
+         trade_costs = list(trade_costs)
+         trade_costs[port_num] = 2
+         return tuple(trade_costs)
+
+
+def updated_trade_costs_with_settlement(board, trade_costs, x, y):
+    port_num = decide_port_number_else_None(board, x, y)
+    if port_num is not None:
+         return new_trading_costs_with_port(trade_costs, port_num)
+    return trade_costs
+
 
 class SettlementTask(Task):
     resources_needed = (2, 1, 1)
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("settlement"):
-            #print("building settlement at (%d %d)!" % (self.x, self.y))
+            # print("building settlement at (%d %d)!" % (self.x, self.y))
             player.buy("settlement", self.x, self.y)
             player.available_locations.add((self.x, self.y))
-            if player.board.is_port(encode_loc(self.x, self.y)):
-                port_num = player.board.which_port(encode_loc(self.x, self.y)) 
-                if port_num == 3:
-                    Task.trade_costs = [3, 3, 3]
-                else:
-                    Task.trade_costs[port_num] = 2
+            Task.trade_costs = updated_trade_costs_with_settlement(player.board, Task.trade_costs, self.x, self.y)
             return True
         return False
 
@@ -149,7 +192,7 @@ class RoadTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("road"):
-            #print("building road from", self.x, "to", self.y)
+            # print("building road from", self.x, "to", self.y)
             player.buy("road", self.x, self.y)
             player.available_locations.add(self.x)
             player.available_locations.add(self.y)
@@ -198,7 +241,7 @@ def decode_loc(i):
 
 def hitting_time_for_a_road(player, roadTask):
     w, b, g = (1, 1, 0)
-    trade_rule = roadTask.make_trading_rule(player)
+    trade_rule = trading_rule_tuple_from_task(roadTask)
     resources_per_roll = player.board.get_resources()
     exp,beta,indexes = hitting_time((0,0,0), (w,b,g), resources_per_roll, trade_rule)
     return exp # time from no resources
@@ -218,7 +261,7 @@ def hitting_time_until_task(player, task, MEMO):
     w_curr, b_curr, g_curr = player.resources
     if w_curr >= w and b_curr >= b and g_curr >=g:
         return 0
-    trade_rule = task.make_trading_rule(player)
+    trade_rule = trading_rule_tuple_from_task(task)
     resources_per_roll = player.board.get_resources()
     exp, beta, indexes = hitting_time(tuple(player.resources), tuple(task.resources_needed), resources_per_roll, trade_rule)
     MEMO[type(task)] = exp
@@ -244,8 +287,8 @@ def get_shortest_path_to_location(available_locations, x, y):
     # this is the closest point to the destination (x, y)
     start = min(available_locations, key=lambda loc: distance(loc, (x, y)))
     # right now we assume that the best path to take is by going diagonally across the board
-    #     that way we maximize new available locations that have 4 neighboring resources
-    #     maybe ideally it would take into account where the other roads are and build in an opposite direction to them or smth
+    # that way we maximize new available locations that have 4 neighboring resources
+    # maybe ideally it would take into account where the other roads are and build in an opposite direction to them or smth
     amount_to_go = [x - start[0], y - start[1]] # (amount_to_go_right, amount_to_go_up)
     points_to_hit = [start]
     curr = list(start) # so that it is mutable, will need to cast to tuple before recording
@@ -316,6 +359,9 @@ def generate_all_possible_goals(player):
     return settlements + cards + cities
 
 def action(self):
+    if min(self.resources) < 0 or max(self.resources) > 6:
+        print("FUCK")
+        raise Exception()
     if self.turn_counter == 0:
         # What are we to do on our first turn?
         x, y = self.preComp
@@ -357,19 +403,15 @@ def average_resources_per_turn(board, locations):
     return r
                     
 def planBoard(board):
-    #Init
-    Task.trade_costs = [4, 4, 4]
-
-    scored = []
+    # Init
+    Task.trade_costs = (4, 4, 4)
+    task = Task()
+    hitting_times = []
     for x in range(5):
         for y in range(5):
-            avg = average_resources_per_turn(board, [(x,y)])
-            if avg[0]==0 or avg[1]==0 or avg[2]==0:
-                avg = 0
-            else:
-                avg = sum(avg)
-            scored.append((avg, (x,y)))
-    return max(scored)[1]
+            ht = resource_hitting_time(board, x, y)
+            hitting_times.append((ht, (x,y)))
+    return min(hitting_times)[1]
 
 ##############################################
 
@@ -419,7 +461,7 @@ if __name__ == "__main__":
         for i in range(n):
             board = make_board()
             trials.append(simulate_game(action, planBoard, board, 1))
-            print(i)
+            print(i, trials[-1], np.mean(np.array(trials)), np.std(np.array(trials)))
         trials = np.array(trials)
         e = time()
         print("\nFinished in", time()-t, "seconds\n")
