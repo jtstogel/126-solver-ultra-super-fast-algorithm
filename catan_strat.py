@@ -55,7 +55,6 @@ class CityGoal(Goal):
         global h1, h2 # you don't need the global keyword to use non-local variables, only to edit
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        #c = resource_hitting_time(player.board, -1, -1)
         return C * weight_function(htime, p, 0, v)
 
 class SettlementGoal(Goal):
@@ -63,7 +62,6 @@ class SettlementGoal(Goal):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        #c = resource_hitting_time(player.board, -1, -1)
         return S * weight_function(htime, p, 0, v)
 
 
@@ -72,7 +70,6 @@ class PortGoal(SettlementGoal):
         global h1, h2
         v = player.points
         p = resource_hitting_time(player.board, self.x, self.y)
-        #c = resource_hitting_time(player.board, -1, -1)
         return P * weight_function(htime, p, 0, v)
 
 
@@ -129,7 +126,6 @@ class Task:
         result, trades = self.trading_rule(w, b, g)
         for i in range(3):
             if trades[i] != None:
-                #print(trades, player.resources, self.trade_costs)
                 player.trade(trades[i][0], trades[i][1])
     
     def execute(self, player):
@@ -152,7 +148,6 @@ class CityTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("city"):
-            # print("building city at (%d, %d)!" % (self.x, self.y))
             player.buy("city", self.x, self.y)
             player.available_locations.add((self.x, self.y))
             return True
@@ -186,7 +181,6 @@ class SettlementTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("settlement"):
-            # print("building settlement at (%d %d)!" % (self.x, self.y))
             player.buy("settlement", self.x, self.y)
             player.available_locations.add((self.x, self.y))
             Task.trade_costs = updated_trade_costs_with_settlement(player.board, Task.trade_costs, self.x, self.y)
@@ -198,7 +192,6 @@ class RoadTask(Task):
     def execute(self, player):
         self.execute_trade(player)
         if player.if_can_buy("road"):
-            # print("building road from", self.x, "to", self.y)
             player.buy("road", self.x, self.y)
             player.available_locations.add(self.x)
             player.available_locations.add(self.y)
@@ -366,7 +359,6 @@ def generate_all_possible_goals(player):
 
 def action(self):
     if min(self.resources) < 0 or max(self.resources) > 6:
-        print("FUCK")
         raise Exception()
     if self.turn_counter == 0:
         # What are we to do on our first turn?
@@ -409,20 +401,6 @@ def average_resources_per_turn(board, locations):
                     r[resource] += 1 * DICE_ROLL_PROBS[die - 2]
     return r
                     
-# def planBoard(board):
-#     # Init
-#     Task.trade_costs = (4, 4, 4)
-#     task = Task()
-#     hitting_times = []
-#     better_hitting_times = []
-#     for x in range(5):
-#         for y in range(5):
-#             ht = resource_hitting_time(board, x, y)
-#             hitting_times.append((ht, (x,y)))
-#             w, b, g = average_resources_per_turn(board, [(x,y)])
-#             if w > 0 and b > 0 and g > 0:
-#                 better_hitting_times.append((ht, (x,y)))
-#     return min(better_hitting_times)[1] if better_hitting_times else min(hitting_times)[1] #
 
 def planBoard(board):
     #Init
