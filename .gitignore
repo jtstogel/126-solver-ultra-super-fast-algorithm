@@ -1,2 +1,5 @@
 __pycache__/*
 .ipynb_checkpoints/*
+build/*
+fast_transition_matrix.cpython-36m-darwin.so
+hello.cpython-36m-darwin.so

@@ -2,7 +2,7 @@ from hittingtime import *
 import numpy as np
 from catan import Catan, CatanException, get_random_dice_arrangement, Player, simulate_game, simulate_game_and_save
 from itertools import repeat
-from catan_strat import action, planBoard
+from catanAction import action, planBoard
 
 
 ##############################################
